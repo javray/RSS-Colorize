@@ -1,0 +1,64 @@
+#!/usr/bin/php
+<?php
+    
+    if ($_SERVER['argc'] === 1) {
+        echo 'Uso: rss tag [tag] [tag] ...'."\n";
+        exit(1);
+    }
+
+    $tags = array();
+    $filtros = array();
+    $limite = 0;
+
+    for ($i = 1; $i < $_SERVER['argc']; $i += 1) {
+        if (strstr($_SERVER['argv'][$i], '=')) {
+            $campos = explode('=', $_SERVER['argv'][$i]);
+            $filtros[$campos[0]] = $campos[1];
+        }
+        elseif (strstr($_SERVER['argv'][$i], '-')) {
+            $limite = str_replace('-', '', $_SERVER['argv'][$i]);
+            $limite = is_numeric($limite) ? $limite : 0;
+        }
+        else {
+            $tags[$_SERVER['argv'][$i]] = '';
+        }
+    }
+
+    $hay_filtros = (count($filtros) > 0);
+
+    $stdin = fopen('php://stdin', 'r');
+    $rss = stream_get_contents($stdin);
+    fclose($stdin);
+
+    $xml = simplexml_load_string($rss);
+    
+    $contador = 0;
+
+    foreach ($xml->channel->item as $item) {
+
+        $condicion = true;
+
+        if ($hay_filtros) {
+            foreach ($filtros as $key => $value) {
+                $condicion &= (strstr(strtoupper($item->{$key}), strtoupper($value)) !== FALSE);
+            }
+        }
+
+        if ($condicion) {
+            $c = 1;
+            foreach ($item as $key => $value) {
+                if (array_key_exists($key, array_merge($tags, $filtros))) {
+                    passthru('tput setaf '.$c.'; echo "'.$value.'";tput op');
+                }
+                $c += 2;
+            }
+
+            $contador += 1;
+
+            if ($limite > 0 && $contador >= $limite) {
+                break;
+            }
+        }
+    }
+?>
+
